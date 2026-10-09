@@ -11,6 +11,7 @@ const num = (o, keys) => {
   return null;
 };
 const fmt = (n) => (n == null || Number.isNaN(n) ? '--' : Number(n).toFixed(2));
+const unwrap = (x) => (x?.result && typeof x.result === 'object' ? x.result : x);
 const Gem = ({ s = 16 }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9z" fill="#fbbf24" /><path d="M2 9h20M9 3l-2 6 5 12 5-12-2-6" stroke="#b45309" strokeWidth="1" fill="none" /></svg>
 );
@@ -26,42 +27,85 @@ export default function CaptchaEarn() {
   const [res, setRes] = useState(null);
   const [err, setErr] = useState('');
   const [adMsg, setAdMsg] = useState('');
+  const [wake, setWake] = useState(false);
   const [rw, setRw] = useState({ ok: 1, bad: 0.5 });
   const busy = useRef(false);
 
   const api = useCallback(async (path, method = 'GET', body) => {
-    const r = await fetch('/api' + path, {
-      method,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    const j = await r.json().catch(() => ({}));
-    if (r.status === 401) { logout?.(); }
-    if (!r.ok) throw Object.assign(new Error(j.message || 'Something went wrong.'), { status: r.status });
-    return j.data ?? j;
+    const tries = method === 'GET' ? 4 : 1;
+    for (let i = 1; i <= tries; i++) {
+      let r;
+      try {
+        r = await fetch('/api' + path, {
+          method,
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: body ? JSON.stringify(body) : undefined,
+        });
+      } catch {
+        if (i < tries) { setWake(true); await sleep(4000); continue; }
+        throw Object.assign(new Error('Cannot reach the server. Please try again in a minute.'), { status: 0 });
+      }
+      if ([502, 503, 504].includes(r.status) && i < tries) { setWake(true); await sleep(4000); continue; }
+      setWake(false);
+      const j = await r.json().catch(() => ({}));
+      if (r.status === 401) logout?.();
+      if (!r.ok) throw Object.assign(new Error(`${j.message || r.statusText || 'Request failed'} (HTTP ${r.status} · ${path})`), { status: r.status });
+      return j.data ?? j;
+    }
   }, [token, logout]);
 
   const wallet = useCallback(async () => {
-    try { const w = await api('/wallet/gems'); const b = num(w, ['balance', 'gems', 'amount', 'balanceMilli', 'gemsMilli']); setBal(b); return b; } catch { return null; }
+    try {
+      const w = await api('/wallet/gems');
+      const b = num(w, ['balance', 'gems', 'amount', 'balanceMilli', 'gemsMilli']);
+      setBal(b);
+      return b;
+    } catch { return null; }
   }, [api]);
 
   const load = useCallback(async (fresh = false) => {
     setView('loading'); setSel(null); setRes(null); setErr('');
     try {
       let c;
-      if (fresh) { try { c = await api('/captcha/new', 'POST'); } catch (e) { if (e.status === 404 || e.status === 405) c = await api('/captcha/new'); else throw e; } }
-      else c = await api('/captcha/current');
+      if (fresh) {
+        try { c = await api('/captcha/new', 'POST'); }
+        catch (e) { if (e.status === 404 || e.status === 405) c = await api('/captcha/new'); else throw e; }
+      } else c = await api('/captcha/current');
+
+      if (c.state === 'RESULT' && c.result) {
+        const r = c.result;
+        const amt = num(r.reward, ['amount', 'gems', 'amountMilli']);
+        const b = await wallet();
+        setCh({ id: r.challengeId, opts: [] });
+        setPrev(b);
+        setRes({ ok: String(r.result).toUpperCase() === 'CORRECT', amt, nb: (b ?? 0) + (amt ?? 0) });
+        setView('result');
+        return;
+      }
+
       c = c.challenge ?? c;
-      const opts = (c.options || []).map((o) => (typeof o === 'string' ? { key: o, label: o } : { key: o.id ?? o.value ?? o.text, label: o.value ?? o.text ?? o.label ?? o.id }));
+      const opts = (c.options || []).map((o) => (typeof o === 'string'
+        ? { key: o, label: o }
+        : { key: o.id ?? o.value ?? o.text, label: o.value ?? o.text ?? o.label ?? o.id }));
       const img = c.image || c.svg;
-      setCh({ id: c.challengeId ?? c.id, text: c.question ?? c.captchaText ?? c.text, opts, img: img ? (img.trim().startsWith('<') ? 'data:image/svg+xml;utf8,' + encodeURIComponent(img) : img) : null });
+      setCh({
+        id: c.challengeId ?? c.id,
+        text: c.question ?? c.captchaText ?? c.text,
+        opts,
+        img: img ? (img.trim().startsWith('<') ? 'data:image/svg+xml;utf8,' + encodeURIComponent(img) : img) : null,
+      });
       setView('challenge');
     } catch (e) { setErr(e.message); setView('error'); }
-  }, [api]);
+  }, [api, wallet]);
 
   useEffect(() => {
     load(); wallet();
-    api('/captcha/config').then((c) => { c = c.config ?? c; const ok = num(c, ['correctReward', 'correctRewardMilli']); const bad = num(c, ['wrongReward', 'wrongRewardMilli']); if (ok != null) setRw({ ok, bad: bad ?? 0.5 }); }).catch(() => {});
+    api('/captcha/config').then((c) => {
+      c = c.config ?? c;
+      const ok = num(c, ['correctReward', 'correctRewardMilli']);
+      const bad = num(c, ['wrongReward', 'wrongRewardMilli']);
+      if (ok != null) setRw({ ok, bad: bad ?? 0.5 });
+    }).catch(() => {});
   }, [load, wallet, api]);
 
   const pick = async (o) => {
@@ -69,8 +113,14 @@ export default function CaptchaEarn() {
     busy.current = true; setSel(o.key); setPrev(bal);
     await sleep(500); setView('verifying');
     try {
-      const [r] = await Promise.all([api('/captcha/verify', 'POST', { challengeId: ch.id, selectedOption: o.key }), sleep(900)]);
-      const amt = typeof r.reward === 'object' ? num(r.reward, ['amount', 'gems', 'amountMilli']) : num(r, ['reward', 'rewardAmount', 'rewardMilli']);
+      const [raw] = await Promise.all([
+        api('/captcha/verify', 'POST', { challengeId: ch.id, selectedOption: o.key }),
+        sleep(900),
+      ]);
+      const r = unwrap(raw);
+      const amt = typeof r.reward === 'object'
+        ? num(r.reward, ['amount', 'gems', 'amountMilli'])
+        : num(r, ['reward', 'rewardAmount', 'rewardMilli']);
       const nb = await wallet();
       setRes({ ok: String(r.result).toUpperCase() === 'CORRECT', amt, nb: nb != null && nb !== prev ? nb : (prev ?? 0) + (amt ?? 0) });
       setView('result');
@@ -99,23 +149,31 @@ export default function CaptchaEarn() {
       </header>
 
       <main className="ce-main" aria-live="polite">
-        {view === 'loading' && <div className="ce-center"><div className="ce-spin" /><p>Loading challenge…</p></div>}
+        {view === 'loading' && (
+          <div className="ce-center">
+            <div className="ce-spin" />
+            <p>{wake ? 'Waking up the server… this can take up to a minute.' : 'Loading challenge…'}</p>
+          </div>
+        )}
 
         {view === 'error' && (
           <div className="ce-center">
             <div className="ce-badge bad">!</div>
             <h2 className="bad">Something went wrong</h2>
             <p>{err || 'Please try again.'}</p>
-            <button className="ce-btn blue" onClick={() => load(true)}>Get New Code</button>
+            <button className="ce-btn blue" onClick={() => { wallet(); load(); }}>Try Again</button>
+            <button className="ce-btn ghost" onClick={() => load(true)}>Get New Code</button>
           </div>
         )}
 
-        {(view === 'challenge') && (
+        {view === 'challenge' && (
           <section className="ce-in">
             <h1>Earn <span>Gems</span></h1>
             <p className="ce-sub">Complete a quick security check to earn rewards.</p>
             <div className="ce-code">
-              {ch?.img ? <img src={ch.img} alt="CAPTCHA code" /> : <div className="ce-chars" aria-label={ch?.text}>{String(ch?.text || '').split('').map((c, i) => <span key={i} style={{ animationDelay: `${i * 60}ms` }}>{c}</span>)}</div>}
+              {ch?.img
+                ? <img src={ch.img} alt="CAPTCHA code" />
+                : <div className="ce-chars" aria-label={ch?.text}>{String(ch?.text || '').split('').map((c, i) => <span key={i} style={{ animationDelay: `${i * 60}ms` }}>{c}</span>)}</div>}
               <button className="ce-new" onClick={() => load(true)}>↻ New Code</button>
             </div>
             <p className="ce-lbl">Select the matching code</p>
@@ -134,7 +192,8 @@ export default function CaptchaEarn() {
         {view === 'verifying' && (
           <div className="ce-center">
             <div className="ce-lock"><i /><i /><span>🔒</span></div>
-            <h2>Verifying…</h2><p>Checking your answer…</p>
+            <h2>Verifying…</h2>
+            <p>Checking your answer…</p>
             <div className="ce-bar"><b /></div>
             <p className="ce-note">Do not close this screen while verification is in progress.</p>
           </div>
@@ -146,14 +205,20 @@ export default function CaptchaEarn() {
             <h2 className={ok ? 'good' : 'bad'}>{ok ? 'Verification Complete!' : 'Verification Unsuccessful'}</h2>
             <p>{ok ? 'You earned' : "The selected code doesn't match the image shown."}</p>
             <div className="ce-amt"><Gem s={30} />+{fmt(res.amt)} Gem{res.amt === 1 ? '' : 's'}</div>
-            <div className="ce-bals"><div><b>{fmt(prev)}</b><small>Previous Balance</small></div><span>→</span><div><b>{fmt(res.nb)}</b><small>New Balance</small></div></div>
+            <div className="ce-bals">
+              <div><b>{fmt(prev)}</b><small>Previous Balance</small></div>
+              <span>→</span>
+              <div><b>{fmt(res.nb)}</b><small>New Balance</small></div>
+            </div>
             <button className={`ce-btn ${ok ? 'green' : 'red'}`} onClick={claim}>{ok ? 'Add to Balance' : 'Claim Reward'}</button>
             <button className="ce-btn ghost" onClick={skip}>{ok ? 'Maybe Later' : 'No Thanks'}</button>
             <p className="ce-note">🛡 {ok ? 'Your reward is secured by our servers.' : 'Security checks keep your account safe.'}</p>
           </div>
         )}
 
-        {view === 'claiming' && <div className="ce-center"><div className="ce-spin" /><h2>{adMsg}</h2><p>Demo state, no real ad network.</p></div>}
+        {view === 'claiming' && (
+          <div className="ce-center"><div className="ce-spin" /><h2>{adMsg}</h2><p>Demo state, no real ad network.</p></div>
+        )}
       </main>
     </div>
   );
