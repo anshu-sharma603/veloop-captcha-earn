@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { LogOut } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import GemIcon from '../common/GemIcon.jsx';
 import { fmt } from '../../utils/format.js';
 import s from './captcha.module.css';
 
-export default function AppHeader({ balance, onLogout }) {
+export default function AppHeader({ balance, onBack }) {
   const [bump, setBump] = useState(false);
   const prev = useRef(balance?.amount);
   useEffect(() => {
@@ -16,7 +16,7 @@ export default function AppHeader({ balance, onLogout }) {
 
   return (
     <header className={s.header}>
-      <button type="button" className={s.iconBtn} onClick={onLogout} aria-label="Log out"><LogOut size={18} /></button>
+      <button type="button" className={s.iconBtn} onClick={onBack} aria-label="Back"><ChevronLeft size={22} /></button>
       <div className={s.brand}><b>VELOOP</b><small>REWARDS</small></div>
       <div className={`${s.pill} ${bump ? s.pillBump : ''}`} aria-label={`Gem balance ${balance ? balance.display : 'loading'}`}>
         <GemIcon size={16} /><span>{balance ? fmt(balance.amount) : '—'}</span>
