@@ -106,11 +106,27 @@ export default function CaptchaEarn() {
           <AppHeader balance={balance} onBack={() => nav('/')} />
 
           {view === 'loading' && (
-            <div aria-busy="true">
-              <div className={s.skel} />
-              <div className={s.skelGrid}><div /><div /><div /><div /></div>
-              {slow && <p className={s.lede} style={{ marginTop: 18 }}>Waking up the server… this can take up to a minute.</p>}
-            </div>
+            <>
+              <h1 className={s.title}>Earn <em>Gems</em></h1>
+              <p className={s.lede}>Complete a quick security check to earn rewards.</p>
+              <section className={`${s.codeCard} ${s.skelShimmer}`} aria-hidden="true">
+                <div className={s.code}>&nbsp;</div>
+                <div className={s.codeFoot}><span className={s.textBtn}>↻ New Code</span><span className={s.timer}>Expires in 2:00</span></div>
+              </section>
+              <p className={s.prompt}>Select the matching code</p>
+              <div className={s.grid} aria-busy="true">
+                {[0, 1, 2, 3].map((i) => <div key={i} className={`${s.option} ${s.skelShimmer}`} />)}
+              </div>
+              {REQUIRE_SUBMIT && <div className={`${s.btn} ${s.skelShimmer}`} style={{ width: '100%', marginTop: 16 }} />}
+              <div className={`${s.reward} ${s.skelShimmer}`}>
+                <span style={{ width: 26, height: 26, flex: 'none' }} />
+                <div>Complete verification to earn <b>+1.00 Gem</b><small>A wrong answer still earns +0.50 Gems</small></div>
+              </div>
+              <div className={`${s.note} ${s.skelShimmer}`}>
+                <span style={{ width: 18, height: 18, flex: 'none' }} />This helps protect your account from automated access.
+              </div>
+              {slow && <div className={s.notice} style={{ position: 'fixed', left: 16, right: 16, bottom: 16, maxWidth: 428, margin: '0 auto' }}>Waking up the server… this can take up to a minute.</div>}
+            </>
           )}
 
           {view === 'error' && <ErrorState message={error || 'Please try again.'} onRetry={() => load()} />}

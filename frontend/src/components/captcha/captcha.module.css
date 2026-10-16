@@ -156,3 +156,20 @@
   .strip .trust { grid-template-columns: repeat(5, 1fr); }
   .strip .trust li { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 8px; }
 }.result .btnPrimary { color: #fff; }
+/* ---- mobile thumb zone ---- */
+@media (max-width: 700px) {
+  .card { display: flex; flex-direction: column; min-height: calc(100dvh - 40px); padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+  .reward { order: 1; }
+  .note { order: 2; }
+  .prompt { order: 3; margin-top: auto; padding-top: 16px; }
+  .grid { order: 4; }
+  .grid + .btn { order: 5; }
+}
+/* ---- skeleton that mirrors the real UI ---- */
+.skelShimmer { color: transparent !important; border-color: var(--line-soft); pointer-events: none; box-shadow: none !important;
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 37%, var(--surface) 63%) !important; background-size: 400% 100% !important;
+  animation: shimmer 1.4s infinite !important; }
+.skelShimmer * { color: transparent !important; }
+.skelShimmer::before { display: none; }
+.option, .btn, .reward, .note, .codeCard { user-select: none; -webkit-user-select: none; }
+html { scrollbar-gutter: stable; }
