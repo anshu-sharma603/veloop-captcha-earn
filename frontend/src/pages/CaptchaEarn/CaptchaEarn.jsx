@@ -22,6 +22,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const unwrap = (x) => (x?.result && typeof x.result === 'object' ? x.result : x);
 
 export default function CaptchaEarn() {
+  
   const nav = useNavigate();
   const { logout } = useAuth();
   const [view, setView] = useState('loading'); // loading | challenge | verifying | result | claiming | error

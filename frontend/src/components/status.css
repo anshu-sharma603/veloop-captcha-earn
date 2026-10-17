@@ -1,0 +1,12 @@
+.st{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;text-align:center;position:relative;overflow:hidden;font-family:var(--font);color:var(--text);background:var(--bg)}
+.st-glow{position:absolute;width:520px;height:520px;max-width:120vw;border-radius:50%;background:radial-gradient(circle,rgba(124,92,255,.35),transparent 65%);top:50%;left:50%;transform:translate(-50%,-60%);filter:blur(30px);pointer-events:none}
+.st>*:not(.st-glow){position:relative}
+.st-brand{font-weight:800;letter-spacing:.24em;line-height:1;margin-bottom:28px}
+.st-brand small{display:block;font-size:.58rem;letter-spacing:.38em;color:var(--muted);margin-top:4px}
+.st-code{font-size:clamp(4.5rem,18vw,8rem);font-weight:800;line-height:1;letter-spacing:-.04em;background:linear-gradient(180deg,#ffe08a,var(--gold) 55%,#b45309);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 12px 30px rgba(245,185,59,.3))}
+.st h1{margin:14px 0 8px;font-size:clamp(1.4rem,4vw,2rem);font-weight:800}
+.st p{margin:0 auto;max-width:42ch;color:var(--muted);line-height:1.6}
+.st-actions{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:28px}
+.st-btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;border-radius:14px;font-weight:700;font-size:.95rem;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);text-decoration:none;cursor:pointer;transition:transform .15s,filter .2s}
+.st-btn:hover{transform:translateY(-1px);filter:brightness(1.1)}
+.st-btn.pri{border:0;color:#fff;background:linear-gradient(180deg,#8f73ff,#5b3fe0);box-shadow:0 14px 30px -12px rgba(124,92,255,.8)}
