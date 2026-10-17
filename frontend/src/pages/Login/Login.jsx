@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight, Eye, EyeOff, Gem, Lock, Mail, ShieldCheck, Zap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
-import './login.css';
+import './Login.css';
 
 const STARS = [['8%', '30%', '0s'], ['86%', '22%', '.7s'], ['92%', '62%', '1.3s'], ['14%', '78%', '1.9s'], ['58%', '4%', '2.3s']];
 
